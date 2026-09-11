@@ -6,6 +6,7 @@ terraform {
     storage_account_name = "stgwus2baseinfra01"
     container_name       = "terraform-workload-tfstate"
     key                  = "WUS2-DEV-neko.terraform.tfstate"
+    use_azuread_auth     = true
   }
 
   required_providers {

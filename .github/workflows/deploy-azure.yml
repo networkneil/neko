@@ -2,7 +2,7 @@ name: Deploy to Azure Container Apps
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   workflow_dispatch:
 
 permissions:
@@ -11,66 +11,94 @@ permissions:
 
 env:
   RESOURCE_GROUP: ${{ vars.RESOURCE_GROUP }}
-  ACR_NAME: ${{ vars.ACR_NAME }}
   CONTAINER_APP_NAME: ${{ vars.CONTAINER_APP_NAME }}
-  ACR_LOGIN_SERVER: ${{ vars.ACR_LOGIN_SERVER }}
 
 jobs:
-  # ── Step 1: Build and push Docker image to ACR ──────────────────────
-  build-and-push:
-    name: Build & Push Image
+  # ── Step 1: Terraform apply (infrastructure) ────────────────────────
+  terraform:
+    name: Terraform Apply
     runs-on: ubuntu-latest
+    environment: dev
+    env:
+      TF_VAR_environment_name: ${{ vars.ENVIRONMENT_NAME }}
+      TF_VAR_location: ${{ vars.LOCATION }}
+      TF_VAR_resource_group_name: ${{ vars.RESOURCE_GROUP }}
+      TF_VAR_container_app_name: ${{ vars.CONTAINER_APP_NAME }}
+      TF_VAR_neko_image: ${{ vars.NEKO_IMAGE }}
+      TF_VAR_neko_http_port: "${{ vars.NEKO_HTTP_PORT }}"
+      TF_VAR_neko_webrtc_port_start: "${{ vars.NEKO_WEBRTC_PORT_START }}"
+      TF_VAR_neko_webrtc_port_end: "${{ vars.NEKO_WEBRTC_PORT_END }}"
+      TF_VAR_neko_shm_size: ${{ vars.NEKO_SHM_SIZE }}
+      TF_VAR_neko_cpu_cores: "${{ vars.NEKO_CPU_CORES }}"
+      TF_VAR_neko_memory_gb: "${{ vars.NEKO_MEMORY_GB }}"
+      TF_VAR_min_replicas: "${{ vars.MIN_REPLICAS }}"
+      TF_VAR_max_replicas: "${{ vars.MAX_REPLICAS }}"
+      TF_VAR_enable_https: ${{ vars.ENABLE_HTTPS }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
-      # Authenticate to Azure using Workload Identity Federation (OIDC)
-      # No Azure secrets stored — GitHub OIDC token is validated by Azure AD
       - name: Login to Azure via Federated Credentials
-        id: login
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          allow-no-subscriptions: false
 
-      - name: Login to ACR
-        uses: azure/docker-login@v2
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
-          login-server: ${{ vars.ACR_LOGIN_SERVER }}
-          username: ${{ secrets.ACR_USERNAME }}
-          password: ${{ secrets.ACR_PASSWORD }}
+          terraform_version: "1.16.2"
+
+      - name: Terraform Init
+        working-directory: ./infra
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: ./infra
+        run: terraform apply -input=false -auto-approve
+
+  # ── Step 2: Build and push Docker image to GHCR ─────────────────────
+  build-and-push:
+    name: Build & Push Image
+    runs-on: ubuntu-latest
+    environment: dev
+    needs: terraform
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build & push Neko image
         run: |
-          IMAGE=${{ vars.ACR_LOGIN_SERVER }}/neko:${{ github.sha }}
+          IMAGE=ghcr.io/${{ github.repository }}/neko:${{ github.sha }}
           docker build \
             --target runtime \
             -f server/Dockerfile \
             -t "$IMAGE" \
-            -t "${{ vars.ACR_LOGIN_SERVER }}/neko:latest" \
+            -t "ghcr.io/${{ github.repository }}/neko:latest" \
             ./server
-          docker push ${{ vars.ACR_LOGIN_SERVER }}/neko
+          docker push ghcr.io/${{ github.repository }}/neko
 
-  # ── Step 2: Deploy to Container Apps ────────────────────────────────
+  # ── Step 3: Deploy to Container Apps ────────────────────────────────
   deploy:
     name: Deploy to Container Apps
     runs-on: ubuntu-latest
+    environment: dev
     needs: build-and-push
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      # Same federated credential login
       - name: Login to Azure via Federated Credentials
-        id: login
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          allow-no-subscriptions: false
 
       - name: Deploy Container App
         uses: azure/CLI@v2
@@ -80,7 +108,7 @@ jobs:
             az containerapp update \
               --name ${{ env.CONTAINER_APP_NAME }} \
               --resource-group ${{ env.RESOURCE_GROUP }} \
-              --image ${{ vars.ACR_LOGIN_SERVER }}/neko:${{ github.sha }}
+              --image ghcr.io/${{ github.repository }}/neko:${{ github.sha }}
 
       - name: Show deployment URL
         run: |
