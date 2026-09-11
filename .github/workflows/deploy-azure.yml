@@ -18,6 +18,7 @@ jobs:
   terraform:
     name: Terraform Apply
     runs-on: ubuntu-latest
+    environment: dev
     env:
       TF_VAR_environment_name: ${{ vars.ENVIRONMENT_NAME }}
       TF_VAR_location: ${{ vars.LOCATION }}
