@@ -3,8 +3,6 @@ resource "azurerm_container_app_environment" "neko" {
   name                       = "${var.environment_name}-env"
   resource_group_name        = azurerm_resource_group.neko.name
   location                   = azurerm_resource_group.neko.location
-  logs_destination           = "log-analytics"
-  log_analytics_workspace_id = azurerm_log_analytics_workspace.neko.id
 
   tags = var.tags
 }
