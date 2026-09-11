@@ -18,6 +18,7 @@ jobs:
   terraform:
     name: Terraform Apply
     runs-on: ubuntu-latest
+    environment: dev
     env:
       TF_VAR_environment_name: ${{ vars.ENVIRONMENT_NAME }}
       TF_VAR_location: ${{ vars.LOCATION }}
@@ -61,6 +62,7 @@ jobs:
   build-and-push:
     name: Build & Push Image
     runs-on: ubuntu-latest
+    environment: dev
     needs: terraform
     steps:
       - name: Checkout
@@ -88,6 +90,7 @@ jobs:
   deploy:
     name: Deploy to Container Apps
     runs-on: ubuntu-latest
+    environment: dev
     needs: build-and-push
     steps:
       - name: Login to Azure via Federated Credentials
