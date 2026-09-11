@@ -18,6 +18,21 @@ jobs:
   terraform:
     name: Terraform Apply
     runs-on: ubuntu-latest
+    env:
+      TF_VAR_environment_name: ${{ vars.ENVIRONMENT_NAME }}
+      TF_VAR_location: ${{ vars.LOCATION }}
+      TF_VAR_resource_group_name: ${{ vars.RESOURCE_GROUP }}
+      TF_VAR_container_app_name: ${{ vars.CONTAINER_APP_NAME }}
+      TF_VAR_neko_image: ${{ vars.NEKO_IMAGE }}
+      TF_VAR_neko_http_port: "${{ vars.NEKO_HTTP_PORT }}"
+      TF_VAR_neko_webrtc_port_start: "${{ vars.NEKO_WEBRTC_PORT_START }}"
+      TF_VAR_neko_webrtc_port_end: "${{ vars.NEKO_WEBRTC_PORT_END }}"
+      TF_VAR_neko_shm_size: ${{ vars.NEKO_SHM_SIZE }}
+      TF_VAR_neko_cpu_cores: "${{ vars.NEKO_CPU_CORES }}"
+      TF_VAR_neko_memory_gb: "${{ vars.NEKO_MEMORY_GB }}"
+      TF_VAR_min_replicas: "${{ vars.MIN_REPLICAS }}"
+      TF_VAR_max_replicas: "${{ vars.MAX_REPLICAS }}"
+      TF_VAR_enable_https: ${{ vars.ENABLE_HTTPS }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -40,7 +55,7 @@ jobs:
 
       - name: Terraform Apply
         working-directory: ./infra
-        run: terraform apply -auto-approve
+        run: terraform apply -input=false -auto-approve
 
   # ── Step 2: Build and push Docker image to GHCR ─────────────────────
   build-and-push:
