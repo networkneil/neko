@@ -30,16 +30,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & push Neko image
+      - name: Build & push Neko image (Firefox)
         run: |
-          IMAGE=ghcr.io/${{ github.repository }}/neko:${{ github.sha }}
-          docker build \
-            --target runtime \
-            -f server/Dockerfile \
-            -t "$IMAGE" \
-            -t "ghcr.io/${{ github.repository }}/neko:latest" \
-            ./server
-          docker push ghcr.io/${{ github.repository }}/neko
+          IMAGE=ghcr.io/${{ github.repository }}/firefox:${{ github.sha }}
+          docker pull ghcr.io/m1k1o/neko/firefox:latest
+          docker tag ghcr.io/m1k1o/neko/firefox:latest "$IMAGE"
+          docker tag ghcr.io/m1k1o/neko/firefox:latest "ghcr.io/${{ github.repository }}/firefox:latest"
+          docker push ghcr.io/${{ github.repository }}/firefox
 
   # ── Step 2: Terraform apply (infrastructure) ────────────────────────
   terraform:
@@ -52,7 +49,7 @@ jobs:
       TF_VAR_location: ${{ vars.LOCATION }}
       TF_VAR_resource_group_name: ${{ vars.RESOURCE_GROUP }}
       TF_VAR_container_app_name: ${{ vars.CONTAINER_APP_NAME }}
-      TF_VAR_neko_image: ghcr.io/${{ github.repository }}/neko:latest
+      TF_VAR_neko_image: ghcr.io/${{ github.repository }}/firefox:latest
       TF_VAR_neko_http_port: "${{ vars.NEKO_HTTP_PORT }}"
       TF_VAR_neko_webrtc_port_start: "${{ vars.NEKO_WEBRTC_PORT_START }}"
       TF_VAR_neko_webrtc_port_end: "${{ vars.NEKO_WEBRTC_PORT_END }}"
@@ -108,7 +105,7 @@ jobs:
             az containerapp update \
               --name ${{ env.CONTAINER_APP_NAME }} \
               --resource-group ${{ env.RESOURCE_GROUP }} \
-              --image ghcr.io/${{ github.repository }}/neko:${{ github.sha }}
+              --image ghcr.io/${{ github.repository }}/firefox:${{ github.sha }}
 
       - name: Show deployment URL
         run: |
