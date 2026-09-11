@@ -1,14 +1,3 @@
-# Log Analytics Workspace (required by Container Apps)
-resource "azurerm_log_analytics_workspace" "neko" {
-  name                = "${var.environment_name}-logs"
-  resource_group_name = azurerm_resource_group.neko.name
-  location            = azurerm_resource_group.neko.location
-  sku                 = "PerGB2018"
-  retention_in_days   = 30
-
-  tags = var.tags
-}
-
 # Container Apps Environment
 resource "azurerm_container_app_environment" "neko" {
   name                       = "${var.environment_name}-env"
